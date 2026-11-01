@@ -1,0 +1,18 @@
+# C / kernel module build outputs
+*.o
+*.ko
+*.mod
+!go.mod
+*.mod.c
+*.mod.o
+*.cmd
+.*.cmd
+modules.order
+Module.symvers
+.tmp_versions/
+# binaries
+01-syscall/c/raw_write
+01-syscall/c/syscall_vs_libc
+01-syscall/go/syscall-demo
+# kernel source checkouts
+/linux/

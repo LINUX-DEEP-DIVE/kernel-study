@@ -1,0 +1,34 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  examples:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+
+      - name: Install kernel headers
+        run: sudo apt-get update && sudo apt-get install -y "linux-headers-$(uname -r)"
+
+      - name: Stage 0 - hello module
+        run: make -C 00-env/hello-module && modinfo 00-env/hello-module/hello.ko
+
+      - name: Stage 1 - C syscall examples
+        run: |
+          make -C 01-syscall/c
+          ./01-syscall/c/raw_write
+
+      - name: Stage 1 - Go syscall example
+        working-directory: 01-syscall/go
+        run: go vet ./... && go build ./...
+
+      - name: Shell scripts
+        run: shellcheck 00-env/scripts/*.sh
