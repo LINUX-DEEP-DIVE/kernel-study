@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"strconv"
 	"syscall"
@@ -29,7 +30,7 @@ func main() {
 	}
 	switch os.Args[1] {
 	case "run":
-		run(os.Args[2:])
+		os.Exit(run(os.Args[2:])) // os.Exit은 defer를 실행하지 않으므로 run 안에서 정리를 끝내고 나온다
 	case "init": // run이 새 namespace 안에서 자기 자신을 다시 실행할 때 쓰는 내부 명령
 		containerInit(os.Args[2:])
 	default:
@@ -44,7 +45,7 @@ func usage() {
 
 // ---------- 1. 부모: namespace를 만들고 cgroup에 넣는다 ----------
 
-func run(args []string) {
+func run(args []string) int {
 	fs := flag.NewFlagSet("run", flag.ExitOnError)
 	hostname := fs.String("hostname", "minibox", "container hostname")
 	mem := fs.String("mem", "", "memory.max (e.g. 64M)")
@@ -63,6 +64,12 @@ func run(args []string) {
 	cmd := exec.Command("/proc/self/exe", append([]string{"init", *hostname, rootfs}, fs.Args()[1:]...)...)
 	cmd.Stdin, cmd.Stdout, cmd.Stderr = os.Stdin, os.Stdout, os.Stderr
 
+	// 자식이 cgroup에 들어가기 전에 일을 시작하면 제한 없이 자원을 쓸 수 있다.
+	// 파이프를 하나 넘겨 주고, 부모가 cgroup 설정을 끝내고 1바이트를 쓸 때까지 자식은 기다린다. (runc도 같은 방식)
+	syncR, syncW, err := os.Pipe()
+	must(err)
+	cmd.ExtraFiles = []*os.File{syncR} // 자식에서 fd 3
+
 	flags := syscall.CLONE_NEWUTS | // 호스트 이름
 		syscall.CLONE_NEWPID | // PID 번호 공간: 컨테이너 안의 첫 프로세스가 PID 1
 		syscall.CLONE_NEWNS | // 마운트 테이블
@@ -73,40 +80,84 @@ func run(args []string) {
 	cmd.SysProcAttr = &syscall.SysProcAttr{Cloneflags: uintptr(flags)}
 
 	must(cmd.Start()) // 내부적으로 clone(flags) 호출. 2단계의 clone과 같은 시스템 콜이다
+	syncR.Close()
 
-	cg := setupCgroup(cmd.Process.Pid, *mem, *pids, *cpu)
-	defer os.Remove(cg) // 비어 있는 cgroup 디렉터리는 rmdir로 지운다
+	cg, err := setupCgroup(cmd.Process.Pid, *mem, *pids, *cpu)
+	if cg != "" {
+		defer os.Remove(cg) // 비어 있는 cgroup 디렉터리는 rmdir로 지운다
+	}
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "[minibox] cgroup setup failed:", err)
+		syncW.Close() // 1바이트도 못 받은 자식은 스스로 종료한다
+		cmd.Process.Kill()
+		cmd.Wait()
+		return 1
+	}
+	syncW.Write([]byte{1})
+	syncW.Close()
+
+	// 감독 프로그램이 minibox에 SIGTERM을 보내면 컨테이너도 끝낸다.
+	// 컨테이너의 PID 1은 핸들러가 없으면 바깥에서 온 SIGTERM을 무시하므로 SIGKILL을 보낸다.
+	// SIGINT(Ctrl+C)는 터미널이 컨테이너에도 직접 보내므로 부모는 받아서 버리기만 한다.
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGTERM, syscall.SIGINT)
+	go func() {
+		for sig := range sigs {
+			if sig == syscall.SIGTERM {
+				cmd.Process.Kill()
+			}
+		}
+	}()
 
 	err = cmd.Wait()
+	signal.Stop(sigs)
 	reportCgroup(cg)
 	if exitErr, ok := err.(*exec.ExitError); ok {
-		os.Exit(exitErr.ExitCode())
+		return exitErr.ExitCode()
 	}
-	must(err)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "[minibox] error:", err)
+		return 1
+	}
+	return 0
 }
 
-func setupCgroup(pid int, mem, pids, cpu string) string {
-	// 상위 cgroup에서 하위로 컨트롤러를 내려 줘야 memory.max 같은 파일이 생긴다
-	must(os.MkdirAll(cgroupRoot, 0o755))
-	write("/sys/fs/cgroup/cgroup.subtree_control", "+memory +pids +cpu")
-	write(filepath.Join(cgroupRoot, "cgroup.subtree_control"), "+memory +pids +cpu")
+func setupCgroup(pid int, mem, pids, cpu string) (string, error) {
+	// 상위 cgroup에서 하위로 컨트롤러를 내려 줘야 memory.max 같은 파일이 생긴다.
+	// 이미 켜져 있을 수 있으니 여기 실패는 기록만 하고, 실제 한도 쓰기에서 실패하면 그때 멈춘다.
+	if err := os.MkdirAll(cgroupRoot, 0o755); err != nil {
+		return "", err
+	}
+	for _, f := range []string{"/sys/fs/cgroup/cgroup.subtree_control", filepath.Join(cgroupRoot, "cgroup.subtree_control")} {
+		if err := write(f, "+memory +pids +cpu"); err != nil {
+			fmt.Fprintf(os.Stderr, "[minibox] warning: %v\n", err)
+		}
+	}
 
 	cg := filepath.Join(cgroupRoot, strconv.Itoa(pid))
-	must(os.Mkdir(cg, 0o755))
+	if err := os.Mkdir(cg, 0o755); err != nil {
+		return "", err
+	}
+	limits := []struct{ file, val string }{
+		{"memory.max", mem}, {"pids.max", pids}, {"cpu.max", cpu},
+	}
 	if mem != "" {
-		write(filepath.Join(cg, "memory.max"), mem)
-		write(filepath.Join(cg, "memory.swap.max"), "0")
+		limits = append(limits, struct{ file, val string }{"memory.swap.max", "0"})
 	}
-	if pids != "" {
-		write(filepath.Join(cg, "pids.max"), pids)
-	}
-	if cpu != "" {
-		write(filepath.Join(cg, "cpu.max"), cpu)
+	for _, l := range limits {
+		if l.val == "" {
+			continue
+		}
+		if err := write(filepath.Join(cg, l.file), l.val); err != nil {
+			return cg, err // 요청한 한도를 못 걸었으면 컨테이너를 띄우지 않는다
+		}
 	}
 	// 프로세스를 cgroup에 넣는 방법: PID를 cgroup.procs에 쓰기. 이후 자식들도 자동으로 따라 들어간다
-	write(filepath.Join(cg, "cgroup.procs"), strconv.Itoa(pid))
+	if err := write(filepath.Join(cg, "cgroup.procs"), strconv.Itoa(pid)); err != nil {
+		return cg, err
+	}
 	fmt.Fprintf(os.Stderr, "[minibox] pid %d in cgroup %s\n", pid, cg)
-	return cg
+	return cg, nil
 }
 
 func reportCgroup(cg string) {
@@ -121,6 +172,13 @@ func reportCgroup(cg string) {
 
 func containerInit(args []string) {
 	hostname, rootfs, argv := args[0], args[1], args[2:]
+
+	// 부모가 cgroup 설정을 끝낼 때까지 기다린다 (fd 3 = 동기화 파이프)
+	syncPipe := os.NewFile(3, "sync")
+	if n, _ := syncPipe.Read(make([]byte, 1)); n != 1 {
+		os.Exit(1) // 부모가 설정에 실패하고 파이프를 닫았다
+	}
+	syncPipe.Close()
 
 	must(syscall.Sethostname([]byte(hostname))) // 새 UTS namespace라 호스트에는 영향 없음
 
@@ -163,10 +221,11 @@ func containerInit(args []string) {
 	must(syscall.Exec(path, argv, []string{"PATH=/bin:/sbin:/usr/bin:/usr/sbin", "HOME=/", "TERM=xterm"}))
 }
 
-func write(path, val string) {
+func write(path, val string) error {
 	if err := os.WriteFile(path, []byte(val), 0o644); err != nil {
-		fmt.Fprintf(os.Stderr, "[minibox] write %s: %v\n", path, err)
+		return fmt.Errorf("write %q to %s: %w", val, path, err)
 	}
+	return nil
 }
 
 func must(err error) {

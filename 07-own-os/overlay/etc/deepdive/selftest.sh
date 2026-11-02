@@ -15,6 +15,11 @@ check "ioctl from Go"              'deepdive-ioctl | grep -q "after read"'
 check "minibox pid namespace"      '[ "$(minibox run /containers/busybox /bin/sh -c "echo \$\$" 2>/dev/null)" = 1 ]'
 check "minibox hostname"           '[ "$(minibox run -hostname box1 /containers/busybox /bin/hostname 2>/dev/null)" = box1 ]'
 check "minibox memory limit (OOM)" 'minibox run -mem 16M /containers/busybox /bin/sh -c "x=aaaaaaaa; while true; do x=\$x\$x; done" 2>&1 | grep -q "oom_kill [1-9]"'
+check "minibox rejects bad limit"  '! minibox run -mem bogus /containers/busybox /bin/true'
+minibox run /containers/busybox /bin/sleep 100 >/dev/null 2>&1 &
+mb=$!; sleep 1; kill -TERM $mb
+check "minibox stops on SIGTERM"   'wait $mb; ! kill -0 $mb'
+check "minibox cleans up cgroups"  '[ -z "$(find /sys/fs/cgroup/minibox -mindepth 1 -maxdepth 1 -type d)" ]'
 
 if [ -x /bin/execsnoop ]; then
   execsnoop > /tmp/exec.log 2>&1 &

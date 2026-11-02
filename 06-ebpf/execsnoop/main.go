@@ -34,7 +34,7 @@ type event struct {
 	Ppid     uint32
 	CgroupID uint64
 	Comm     [16]byte
-	Filename [128]byte
+	Filename [256]byte
 }
 
 func cstr(b []byte) string {
@@ -94,7 +94,7 @@ func main() {
 			continue
 		}
 		var e event
-		if err := binary.Read(bytes.NewReader(rec.RawSample), binary.LittleEndian, &e); err != nil {
+		if err := binary.Read(bytes.NewReader(rec.RawSample), binary.NativeEndian, &e); err != nil {
 			log.Printf("decode: %v", err)
 			continue
 		}

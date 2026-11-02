@@ -21,7 +21,7 @@ else
   KERNEL_IMG="/boot/vmlinuz-$KREL"
   KDIR="/lib/modules/$KREL/build"
 fi
-[ -r "$KERNEL_IMG" ] || { echo "커널 이미지를 읽을 수 없음: $KERNEL_IMG (Ubuntu는 sudo 필요하거나 KERNEL_SRC 사용)" >&2; exit 1; }
+[ -r "$KERNEL_IMG" ] || { echo "커널 이미지를 읽을 수 없음: $KERNEL_IMG (Ubuntu: sudo chmod a+r 로 읽기 권한을 열거나 KERNEL_SRC 사용)" >&2; exit 1; }
 echo "kernel : $KERNEL_IMG"
 echo "modules: built against $KDIR"
 

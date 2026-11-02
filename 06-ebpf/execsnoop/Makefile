@@ -8,7 +8,7 @@ execsnoop.bpf.o: bpf/execsnoop.bpf.c
 	$(CLANG) -O2 -g -target bpf -D__TARGET_ARCH_$(ARCH) \
 		-I/usr/include/$(shell uname -m)-linux-gnu -c $< -o $@
 
-execsnoop: execsnoop.bpf.o main.go
+execsnoop: execsnoop.bpf.o main.go go.mod go.sum
 	CGO_ENABLED=0 go build -o $@ .
 
 clean:

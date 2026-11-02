@@ -12,7 +12,7 @@
 #include <bpf/bpf_core_read.h>
 
 #define TASK_COMM_LEN 16
-#define MAX_FILENAME 128
+#define MAX_FILENAME 256 /* 더 긴 경로는 잘린다. 잘렸는지 표시하는 건 실습 과제 */
 
 /*
  * CO-RE (Compile Once, Run Everywhere):

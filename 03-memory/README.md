@@ -31,14 +31,14 @@ cd go && go run . && GOMEMLIMIT=200MiB go run .
 ## 실습 과제
 
 **주소 공간**
-- [ ] `vm_layout`을 두 번 실행해서 바뀌는 주소와 안 바뀌는 비율을 비교하기. `setarch -R ./vm_layout`으로 ASLR을 끄면?
+- [ ] `vm_layout`을 두 번 실행해서 바뀌는 주소와 안 바뀌는 비율을 비교하기. `setarch -R ./c/vm_layout`으로 ASLR을 끄면?
 - [ ] `/proc/self/maps`의 각 줄에서 권한(`r-xp`, `rw-p`)과 이름을 보고 위의 주소들이 어느 줄에 속하는지 짝 맞추기
-- [ ] `malloc(16)`과 `malloc(1MiB)`의 주소가 완전히 다른 영역에 있다. `strace ./vm_layout 2>&1 | grep -E 'brk|mmap'`으로 이유 확인하기
+- [ ] `malloc(16)`과 `malloc(1MiB)`의 주소가 완전히 다른 영역에 있다. `strace ./c/vm_layout 2>&1 | grep -E 'brk|mmap'`으로 이유 확인하기
 
 **Lazy allocation**
 - [ ] 1GiB를 `mmap`했는데 RSS가 거의 그대로다. 커널은 `mmap` 시점에 무엇만 만들었을까? (힌트: VMA)
 - [ ] **읽기**만 했는데 page fault는 262144번 났는데 RSS는 그대로다. 그럼 읽은 값 0은 어디서 왔을까? (힌트: zero page)
-- [ ] `huge` 옵션에서 fault 수가 512배 줄었다. 512는 어디서 나온 숫자일까? `grep -i huge /proc/meminfo`, `cat /sys/kernel/mm/transparent_hugepage/enabled`
+- [ ] `huge` 옵션에서 fault 수가 512배까지 줄 수 있다. 512는 어디서 나온 숫자일까? `MADV_HUGEPAGE`는 요청일 뿐이라 설정에 따라 안 줄 수도 있다. 안 줄었다면 `cat /sys/kernel/mm/transparent_hugepage/enabled`, `grep -i huge /proc/meminfo`로 이유 찾기
 - [ ] `MADV_DONTNEED` 후 다시 읽으면 값은 무엇일까? 코드에 추가해서 확인하기
 
 **COW를 물리 주소로**

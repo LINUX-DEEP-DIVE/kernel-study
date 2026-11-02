@@ -17,7 +17,7 @@ bpftrace -e 'tracepoint:raw_syscalls:sys_enter /comm == "raw_write"/ { printf("%
 bpftrace -e 'tracepoint:sched:sched_process_fork { printf("%s(%d) -> %d\n", args->parent_comm, args->parent_pid, args->child_pid); }'
 
 # [2단계] 컨텍스트 스위치: 누가 CPU를 내주고 누가 받나
-bpftrace -e 'tracepoint:sched:sched_switch { @[args->prev_comm, args->next_comm] = count(); }'
+bpftrace -e 'tracepoint:sched:sched_switch { @[args->prev_comm, args->prev_pid, args->next_comm, args->next_pid] = count(); }'
 
 # [3단계] 프로세스별 page fault 수 (lazy_alloc 실행하면서)
 bpftrace -e 'software:page-faults:1 { @[comm] = count(); }'

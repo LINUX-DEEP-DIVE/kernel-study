@@ -25,14 +25,17 @@ hostname; echo $$; ps; ls /; mount
  호스트                                    새 namespace 안
  ───────────────────────────────           ─────────────────────────────────────
  minibox run                               minibox init   (PID 1, hostname=minibox)
-   │ clone(CLONE_NEWUTS|NEWPID|NEWNS|        │ sethostname
-   │       NEWIPC[|NEWNET])  ────────────▶   │ mount --make-rprivate /
-   │                                         │ bind mount rootfs, pivot_root, umount old root
-   │ mkdir /sys/fs/cgroup/minibox/<pid>      │ mount proc /proc, tmpfs /tmp
-   │ echo 64M > memory.max                   │ execve("/bin/sh")  ← 이제 PID 1은 sh
-   │ echo <pid> > cgroup.procs               ▼
-   │ wait()                                사용자 명령 실행
-   ▼ memory.peak, memory.events 출력
+   │ clone(CLONE_NEWUTS|NEWPID|NEWNS|
+   │       NEWIPC[|NEWNET])  ────────────▶   │ 동기화 파이프(fd 3)에서 대기
+   │ mkdir /sys/fs/cgroup/minibox/<pid>      │   (cgroup에 들어가기 전엔 아무것도 안 함)
+   │ echo 64M > memory.max                   │
+   │ echo <pid> > cgroup.procs               │
+   │ 파이프에 1바이트 쓰기 ───────────────▶   │ sethostname
+   │                                         │ mount --make-rprivate /
+   │ wait()                                  │ bind mount rootfs, pivot_root, umount old root
+   │                                         │ mount proc /proc, tmpfs /tmp
+   │                                         │ execve("/bin/sh")  ← 이제 PID 1은 sh
+   ▼ memory.peak, memory.events 출력         ▼ 사용자 명령 실행
 ```
 
 `docker run`도 결국 containerd → runc를 거쳐 **같은 시스템 콜**로 내려옵니다. runc의 [`libcontainer/nsenter`](https://github.com/opencontainers/runc/tree/main/libcontainer)와 비교해 보세요.

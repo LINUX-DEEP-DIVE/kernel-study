@@ -30,6 +30,10 @@ int main(void)
 	printf("\n--- /proc/self/maps ---\n");
 	FILE *f = fopen("/proc/self/maps", "r");
 	char line[512];
+	if (!f) {
+		perror("fopen /proc/self/maps");
+		return 1;
+	}
 	while (fgets(line, sizeof(line), f))
 		fputs(line, stdout);
 	fclose(f);

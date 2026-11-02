@@ -49,8 +49,11 @@ sudo apt install busybox-static qemu-system-x86 cpio clang libbpf-dev
 # 방법 1: 0단계에서 빌드한 내 커널로 (권장)
 KERNEL_SRC=../linux ./build.sh
 
-# 방법 2: 지금 쓰는 Ubuntu 커널로 (커널 이미지가 root 전용이라 sudo)
-sudo ./build.sh
+# 방법 2: 지금 쓰는 Ubuntu 커널로
+# Ubuntu는 /boot/vmlinuz-*를 root만 읽을 수 있게 해 둔다. build.sh 전체를 sudo로 돌리면
+# out/이 root 소유가 되어 run.sh가 못 읽으니, 커널 파일만 읽기 권한을 열어 준다 (CI도 같은 방법)
+sudo chmod a+r /boot/vmlinuz-$(uname -r)
+./build.sh
 
 ./run.sh          # 부팅. 콘솔에서 이것저것 해 보고 poweroff
 ./run.sh test     # 자동 selftest (CI에서도 이걸 돌린다)

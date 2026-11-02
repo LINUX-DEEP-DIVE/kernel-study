@@ -16,6 +16,8 @@ static long rss_kib(void)
 	FILE *f = fopen("/proc/self/status", "r");
 	char line[256];
 	long kib = -1;
+	if (!f)
+		return -1; // RSS를 알 수 없음
 	while (fgets(line, sizeof(line), f))
 		if (sscanf(line, "VmRSS: %ld kB", &kib) == 1)
 			break;
