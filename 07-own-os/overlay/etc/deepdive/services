@@ -1,0 +1,4 @@
+# 이름   재시작정책   명령 [인자...]
+# respawn: 종료되면 다시 띄운다 / once: 한 번만
+motd     once      /bin/cat /etc/motd
+shell    respawn   /bin/sh -l

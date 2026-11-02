@@ -1,0 +1,3 @@
+# 부팅할 때 deepdive-init이 올리는 커널 모듈. "경로 [파라미터...]"
+/lib/modules/deepdive/hello.ko who=deepdive-os
+/lib/modules/deepdive/deepdive.ko

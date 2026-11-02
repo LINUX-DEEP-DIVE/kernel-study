@@ -41,7 +41,14 @@
 - C(BPF 프로그램) + Go(`cilium/ebpf` 로더)로 도구 만들기: execsnoop, TCP 연결 추적
 - k8s 연결: Cilium, Pod 단위 관측 도구로 확장
 
-## (선택) 7단계. 파일시스템·네트워크 스택
+## 7단계. 나만의 OS: DeepDive OS (2~3주)
+- 읽기: initramfs, `kernel_init`, PID 1의 책임(좀비 회수, 종료), Talos/gokrazy의 Go init
+- Go: PID 1 init 직접 작성 (마운트, `finit_module`, 서비스 감시, `reboot`)
+- 조립: 직접 빌드한 커널 + initramfs(busybox, 4단계 모듈, 5단계 minibox, 6단계 execsnoop) → QEMU 부팅, CI에서 selftest
+- 도전: tinyconfig로 커널 최소화, 커널에 initramfs 내장, 미니 PC 실물 부팅, A/B 업데이트
+- 그다음: xv6 / OSDev로 커널 자체를 처음부터
+
+## (선택) 8단계. 파일시스템·네트워크 스택
 - VFS(`inode`, `dentry`, `file`), FUSE를 Go로 구현
 - 패킷 경로: NIC → `sk_buff` → netfilter → 소켓, XDP 실습
 
@@ -50,6 +57,6 @@
 LINUX-DEEP-DIVE/
   kernel-study/          # 하나의 모노레포 (권장)
     00-env/  01-syscall/  02-process/  03-memory/
-    04-module/  05-container/  06-ebpf/
+    04-module/  05-container/  06-ebpf/  07-own-os/
     notes/               # 주차별 정리
 ```

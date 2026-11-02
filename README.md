@@ -2,6 +2,7 @@
 
 LINUX-DEEP-DIVE의 리눅스 커널 딥다이브 스터디 레포입니다.
 **커널 공간은 C**, **유저 공간 도구와 컨테이너 런타임은 Go**로 직접 만들어 보며 커널 내부를 공부합니다.
+최종 목표는 각 단계에서 만든 것을 모아 **리눅스 커널 위에 우리만의 OS(DeepDive OS)를 올리는 것**입니다.
 
 ## 진행 순서
 
@@ -14,6 +15,7 @@ LINUX-DEEP-DIVE의 리눅스 커널 딥다이브 스터디 레포입니다.
 | 4 | [04-module](04-module) | 커널 모듈, 캐릭터 디바이스, 동기화 | C |
 | 5 | [05-container](05-container) | namespace, cgroup v2, 미니 컨테이너 런타임 (k8s 연결) | Go |
 | 6 | [06-ebpf](06-ebpf) | eBPF 관측 도구 | C, Go |
+| 7 | [07-own-os](07-own-os) | **나만의 OS**: Go init + 모듈 + 컨테이너 런타임 + eBPF를 묶어 QEMU로 부팅 | Go, C |
 
 자세한 주차별 내용은 [docs/roadmap.md](docs/roadmap.md)를 보세요.
 

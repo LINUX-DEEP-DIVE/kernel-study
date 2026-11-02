@@ -16,3 +16,16 @@ Module.symvers
 01-syscall/go/syscall-demo
 # kernel source checkouts
 /linux/
+# stage 2-7 build outputs
+02-process/c/fork_cow
+02-process/c/clone_vm
+02-process/c/nice_share
+03-memory/c/vm_layout
+03-memory/c/lazy_alloc
+03-memory/c/pagemap
+04-module/ringbuf/stats
+05-container/minibox/minibox
+05-container/rootfs/
+06-ebpf/execsnoop/execsnoop
+06-ebpf/execsnoop/*.bpf.o
+07-own-os/out/
