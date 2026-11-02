@@ -1,0 +1,3 @@
+# 커널 cmdline에 deepdive.test=1 이 있으면 이 목록을 쓴다 (CI용)
+# selftest가 끝나면 init이 전원을 끈다
+selftest once /etc/deepdive/selftest.sh

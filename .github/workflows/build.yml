@@ -14,21 +14,78 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: stable
+          cache: false
 
-      - name: Install kernel headers
-        run: sudo apt-get update && sudo apt-get install -y "linux-headers-$(uname -r)"
+      - name: Install toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y "linux-headers-$(uname -r)" clang libbpf-dev busybox-static
 
-      - name: Stage 0 - hello module
-        run: make -C 00-env/hello-module && modinfo 00-env/hello-module/hello.ko
+      - name: Kernel modules (stage 0, 2, 4)
+        run: |
+          make -C 00-env/hello-module
+          make -C 02-process/ptree-module
+          make -C 04-module/ringbuf
+          modinfo 00-env/hello-module/hello.ko 02-process/ptree-module/ptree.ko 04-module/ringbuf/deepdive.ko | grep -E '^(filename|description)'
 
-      - name: Stage 1 - C syscall examples
+      - name: C examples (stage 1-3)
         run: |
           make -C 01-syscall/c
+          make -C 02-process/c
+          make -C 03-memory/c
           ./01-syscall/c/raw_write
+          ./02-process/c/fork_cow
+          ./02-process/c/clone_vm share
+          ./03-memory/c/lazy_alloc
 
-      - name: Stage 1 - Go syscall example
-        working-directory: 01-syscall/go
-        run: go vet ./... && go build ./...
+      - name: Go examples (stage 1-7)
+        run: |
+          for d in 01-syscall/go 02-process/go 03-memory/go 04-module/go 05-container/minibox 07-own-os/init; do
+            echo "== $d"; (cd "$d" && go vet ./... && go build -o /dev/null .)
+          done
+          (cd 02-process/go && go run .)
+
+      - name: eBPF (stage 6)
+        run: make -C 06-ebpf/execsnoop && (cd 06-ebpf/execsnoop && go vet ./...)
 
       - name: Shell scripts
-        run: shellcheck 00-env/scripts/*.sh
+        run: shellcheck 00-env/scripts/*.sh 05-container/make-rootfs.sh 07-own-os/*.sh 07-own-os/overlay/etc/deepdive/selftest.sh
+
+  own-os:
+    # 7단계: DeepDive OS 이미지를 만들고 QEMU로 부팅해서 selftest가 PASS인지 확인
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+          cache: false
+
+      - name: Install toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y "linux-headers-$(uname -r)" clang libbpf-dev busybox-static qemu-system-x86 cpio
+
+      - name: Enable KVM
+        run: |
+          if [ -e /dev/kvm ]; then
+            echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm.rules
+            sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm
+          fi
+
+      - name: Build image with the runner's kernel
+        run: |
+          sudo chmod a+r "/boot/vmlinuz-$(uname -r)"
+          ./07-own-os/build.sh
+
+      - name: Boot and selftest
+        run: ./07-own-os/run.sh test
+
+      - name: Upload boot log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: deepdive-os-boot-log
+          path: 07-own-os/out/boot.log
+          if-no-files-found: ignore

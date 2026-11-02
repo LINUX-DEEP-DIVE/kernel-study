@@ -53,3 +53,10 @@ LINUX-DEEP-DIVE/
     04-module/  05-container/  06-ebpf/
     notes/               # 주차별 정리
 ```
+
+## 7단계. 나만의 OS: DeepDive OS (2~3주)
+- 읽기: initramfs, `kernel_init`, PID 1의 책임(좀비 회수, 종료), Talos/gokrazy의 Go init
+- Go: PID 1 init 직접 작성 (마운트, `finit_module`, 서비스 감시, `reboot`)
+- 조립: 직접 빌드한 커널 + initramfs(busybox, 4단계 모듈, 5단계 minibox, 6단계 execsnoop) → QEMU 부팅, CI에서 selftest
+- 도전: tinyconfig로 커널 최소화, 커널에 initramfs 내장, 미니 PC 실물 부팅, A/B 업데이트
+- 그다음: xv6 / OSDev로 커널 자체를 처음부터

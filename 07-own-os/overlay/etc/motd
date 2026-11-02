@@ -1,0 +1,14 @@
+
+  ____                  ____  _              ___  ____
+ |  _ \  ___  ___ _ __ |  _ \(_)_   _____   / _ \/ ___|
+ | | | |/ _ \/ _ \ '_ \| | | | \ \ / / _ \ | | | \___ \
+ | |_| |  __/  __/ |_) | |_| | |\ V /  __/ | |_| |___) |
+ |____/ \___|\___| .__/|____/|_| \_/ \___|  \___/|____/
+                 |_|        LINUX-DEEP-DIVE kernel-study
+
+ PID 1      : /init (Go, 07-own-os/init)
+ 모듈       : lsmod, cat /dev/deepdive, deepdive-ioctl
+ 컨테이너   : minibox run -mem 32M /containers/busybox /bin/sh
+ eBPF       : execsnoop
+ 끄기       : poweroff
+
