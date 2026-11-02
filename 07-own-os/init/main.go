@@ -190,8 +190,21 @@ func shutdown(cmd int) {
 	time.Sleep(time.Second)
 	syscall.Kill(-1, syscall.SIGKILL)
 	syscall.Sync()
+	drainConsole()
 	// PID 1이 그냥 exit하면 커널은 "Attempted to kill init!" 패닉을 낸다. 반드시 reboot 시스템 콜로 끝낸다
 	syscall.Reboot(cmd)
+}
+
+// 콘솔(시리얼)에 아직 나가지 못한 출력이 남아 있으면 전원을 끌 때 사라진다.
+// tcdrain(TCSBRK, 1)으로 전송이 끝날 때까지 기다린다. KVM처럼 빠른 환경에서 특히 필요하다.
+func drainConsole() {
+	f, err := os.OpenFile("/dev/console", os.O_WRONLY, 0)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+	unix.IoctlSetInt(int(f.Fd()), unix.TCSBRK, 1)
+	time.Sleep(200 * time.Millisecond)
 }
 
 // ---------- 유틸 ----------
